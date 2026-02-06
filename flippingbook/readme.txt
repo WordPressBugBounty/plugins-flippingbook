@@ -1,12 +1,14 @@
 === FlippingBook ===
-Contributors: FlippingBook
-Tags: flipbook, flip book, pdf flip book, pdf viewer, embed pdf, magazine, catalog, ebook, brochure, booklet, page flip, pdf
+Contributors: sergey-chernov
+Tags: flipbook, pdf viewer, embed pdf, catalog, page flip
 Requires at least: 3.2
 Requires PHP: 5.5.0
-Tested up to: 6.5.5
-Stable tag: 2.0.1
+Tested up to: 6.9
+Stable tag: 2.0.2
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
+
+Embed PDFs into your WordPress site as interactive flipbooks. Attractive and trackable, flipbooks are a great alternative to static PDFs.
 
 == Description ==
 FlippingBook Plugin is a flipbook PDF viewer solution. It allows you to embed flipbooks made via FlippingBook Online or FlippingBook Publisher into WordPress in one step, without any extra fuss. 
@@ -112,6 +114,8 @@ Like with all plugins, our plugin is available starting from the Business plan.
 We don’t have a free plan but you can try FlippingBook for free, no credit card required. All features and templates are available to you during the trial, bar Custom Domain. You can check out all our plans and prices [here](https://flippingbook.com/order-online).
 
 == Changelog ==
+= 2.0.2 =
+* Security updates.
 = 2.0.1 =
 * Minor updates.
 = 2.0 =

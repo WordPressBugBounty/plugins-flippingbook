@@ -11,7 +11,7 @@
  * Plugin Name:         FlippingBook
  * Plugin URI:          https://flippingbook.com/wordpress
  * Description:         FlippingBook plugin allows you to easily embed flipbooks made with FlippingBook into your Wordpress posts and pages.
- * Version:             2.0.1
+ * Version:             2.0.2
  * Requires at least:   3.2
  * Requires PHP:        5.5.0
  * Author:              FlippingBook
@@ -88,7 +88,7 @@ class Flippingbook {
 
 	function process_oembed_html($html, $ratio) {
 		$patterns = array ( '/data-fb(\w)-width="\w*%?"/', '/data-fb(\w)-height="\w*%?"/' );
-		$replacements = array( 'data-fb${1}-width="100%"', 'data-fb${1}-height="auto" data-fb${1}-ratio="'.$ratio.'"' );
+		$replacements = array( 'data-fb${1}-width="100%"', 'data-fb${1}-height="auto" data-fb${1}-ratio="'.esc_attr($ratio).'"' );
 		return preg_replace($patterns, $replacements, $html);
 	}
 
@@ -99,11 +99,11 @@ class Flippingbook {
 	}
 
 	function fix_size_for_oembed($args) {
-		$patterns = array ( '/px/', '/\d*%/', '/auto/');
+		$patterns = array ( '/px/i', '/\d*%/', '/auto/i');
 		$replacements = array( '', '500', '500');
 
-		$args['width'] = preg_replace($patterns, $replacements, $args['width']);
-		$args['height'] = preg_replace($patterns, $replacements, $args['height']);
+		$args['width'] = preg_replace($patterns, $replacements, isset($args['width']) ? (string) $args['width'] : '');
+		$args['height'] = preg_replace($patterns, $replacements, isset($args['height']) ? (string) $args['height'] : '');
 
         return $args;
     }
@@ -111,25 +111,191 @@ class Flippingbook {
 	function process_shortcode_size($html, $ratio = NULL, $width = NULL, $height = NULL) {
 		if ( $ratio && !$width && !$height ) {
 			$patterns = array ( '/data-fb(\w)-width="\w*%?"/', '/data-fb(\w)-height="\w*%?"/' );
-			$replacements = array( 'data-fb${1}-width="100%"', 'data-fb${1}-height="auto" data-fb${1}-ratio="'.$ratio.'"' );
+			$replacements = array( 'data-fb${1}-width="100%"', 'data-fb${1}-height="auto" data-fb${1}-ratio="'.esc_attr($ratio).'"' );
 			return preg_replace($patterns, $replacements, $html);
 		}
         if ( $ratio ) {
 	        $patterns = array ( '/data-fb(\w)-height="(\w*%?)"/' );
-	        $replacements = array( 'data-fb${1}-height="${2}" data-fb${1}-ratio="'.$ratio.'"' );
+	        $replacements = array( 'data-fb${1}-height="${2}" data-fb${1}-ratio="'.esc_attr($ratio).'"' );
 	        $html = preg_replace($patterns, $replacements, $html);
         }
 		if ( $width ) {
 			$patterns = array ( '/data-fb(\w)-width="\w*%?"/' );
-			$replacements = array( 'data-fb${1}-width="'.$width.'"' );
+			$replacements = array( 'data-fb${1}-width="'.esc_attr($width).'"' );
 			$html = preg_replace($patterns, $replacements, $html);
 		}
 		if ( $height ) {
 			$patterns = array ( '/data-fb(\w)-height="\w*%?"/' );
-			$replacements = array( 'data-fb${1}-height="'.$height.'"' );
+			$replacements = array( 'data-fb${1}-height="'.esc_attr($height).'"' );
 			$html = preg_replace($patterns, $replacements, $html);
 		}
 		return $html;
+	}
+
+	function sanitize_shortcode_attrs( $attrs ): array {
+		if ( ! is_array( $attrs ) ) {
+			$attrs = array();
+		}
+		return array(
+			'width'     => $this->sanitize_dimension( $attrs['width'] ?? null, false ),
+			'height'    => $this->sanitize_dimension( $attrs['height'] ?? null, true ),
+			'lightbox'  => $this->sanitize_bool_attr( $attrs['lightbox'] ?? null, 'true' ),
+			'title'     => $this->sanitize_text_attr( $attrs['title'] ?? null ),
+			'mode'      => $this->sanitize_mode( $attrs['mode'] ?? null ),
+			'page'      => $this->sanitize_integer( $attrs['page'] ?? null ),
+			'wheel'     => $this->sanitize_bool_attr( $attrs['wheel'] ?? null ),
+			'analytics' => $this->sanitize_bool_attr( $attrs['analytics'] ?? null ),
+			'ratio'     => $this->sanitize_ratio( $attrs['ratio'] ?? null ),
+			'thumbnail' => $this->sanitize_url_attr( $attrs['thumbnail'] ?? null ),
+			'legacy'    => $this->sanitize_bool_attr( $attrs['legacy'] ?? null ),
+		);
+	}
+
+	function sanitize_dimension( $value, $allow_auto = false ) {
+		if ( $value === null ) {
+			return null;
+		}
+		$value = trim( (string) $value );
+		if ( $value === '' ) {
+			return null;
+		}
+		if ( $allow_auto && strtolower( $value ) === 'auto' ) {
+			return 'auto';
+		}
+		if ( preg_match( '/^\d+(?:\.\d+)?(?:px|%)?$/', $value ) ) {
+			return $value;
+		}
+
+		return null;
+	}
+
+	function sanitize_bool_attr( $value, $default = null ) {
+		if ( $value === null ) {
+			return $default;
+		}
+		$bool_value = filter_var( $value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE );
+		if ( $bool_value === null ) {
+			return null;
+		}
+
+		return $bool_value ? 'true' : 'false';
+	}
+
+	function sanitize_ratio( $value ) {
+		if ( $value === null ) {
+			return null;
+		}
+		$value = trim( (string) $value );
+		if ( preg_match( '/^\d+:\d+$/', $value ) ) {
+			return $value;
+		}
+
+		return null;
+	}
+
+	function sanitize_integer( $value ) {
+		if ( $value === null ) {
+			return null;
+		}
+		$value = trim( (string) $value );
+		if ( preg_match( '/^\d+$/', $value ) ) {
+			return $value;
+		}
+
+		return null;
+	}
+
+	function sanitize_mode( $value ) {
+		if ( $value === null ) {
+			return null;
+		}
+		$value = strtolower( trim( (string) $value ) );
+		if ( in_array( $value, array( 'link' ), true ) ) {
+			return $value;
+		}
+
+		return null;
+	}
+
+	function sanitize_url_attr( $value ) {
+		if ( $value === null ) {
+			return null;
+		}
+		$url = esc_url_raw( trim( (string) $value ) );
+
+		return $url !== '' ? $url : null;
+	}
+
+	function sanitize_text_attr( $value ) {
+		if ( $value === null ) {
+			return null;
+		}
+
+		return sanitize_text_field( $value );
+	}
+
+	function sanitize_publication_url( $value ): string {
+		$value = trim( (string) $value );
+		if ( $value === '' ) {
+			return '';
+		}
+
+		$url = esc_url_raw( $value );
+		if ( $url === '' ) {
+			return '';
+		}
+
+		if ( ! filter_var( $url, FILTER_VALIDATE_URL ) ) {
+			return '';
+		}
+
+		if ( preg_match( '/[<>"\']/', $url ) ) {
+			return '';
+		}
+
+		if ( preg_match( '/%(?:3c|3e|22|27)/i', $url ) ) {
+			return '';
+		}
+
+		if ( ! $this->is_allowed_publication_url( $url ) ) {
+			return '';
+		}
+
+		return $url;
+	}
+
+	function is_allowed_publication_url( $url ): bool {
+		$parts = parse_url( $url );
+		if ( ! is_array( $parts ) ) {
+			return false;
+		}
+
+		$scheme = isset( $parts['scheme'] ) ? strtolower( $parts['scheme'] ) : '';
+		if ( $scheme !== 'http' && $scheme !== 'https' ) {
+			return false;
+		}
+
+		$host = isset( $parts['host'] ) ? strtolower( $parts['host'] ) : '';
+		if ( $host === '' ) {
+			return false;
+		}
+
+		$path = isset( $parts['path'] ) ? $parts['path'] : '';
+
+		if ( $host === 'online.flippingbook.com' || $host === 'online.test-sub.flippingbook.com' ) {
+			return strpos( $path, '/view/' ) === 0;
+		}
+
+		if ( $host === 'cld.bz' || substr( $host, -7 ) === '.cld.bz' ) {
+			return true;
+		}
+
+		$options = get_option( 'flippingbook_options' );
+		if ( ! empty( $options ) && ! empty( $options['custom_domain'] ) ) {
+			return $host === strtolower( $options['custom_domain'] );
+		}
+
+		return false;
 	}
 
 	/**
@@ -143,10 +309,16 @@ class Flippingbook {
 	 */
 	function flippingbook_shortcode_handler( $attrs, $content, $tag ): string {
 		$wp_oembed = _wp_oembed_get_object();
-		$url = parse_url( $content );
+		$content = trim( $content );
+		$publication_url = $this->sanitize_publication_url( $content );
+		if ( $publication_url === '' ) {
+			return __('FlippingBook shortcode is not correct', 'flippingbook');
+		}
+		$url = $publication_url ? parse_url( $publication_url ) : false;
 
 		$options = get_option('flippingbook_options');
-		$shortcode_hash = sha1($content . '_' . (is_array($attrs) ? stringify_array('_', $attrs) : $attrs));
+		$sanitized_attrs = $this->sanitize_shortcode_attrs( $attrs );
+		$shortcode_hash = sha1($publication_url . '_' . stringify_array('_', $sanitized_attrs));
 		$embed_transient = get_transient( 'flippingbook_'.$shortcode_hash );
 
 		if ( !empty( $embed_transient ) ){
@@ -154,32 +326,20 @@ class Flippingbook {
 		}
 
 		if ( ! empty( $url ) ) {
-			$a = shortcode_atts(
-				array(
-					'width'     => NULL,
-					'height'    => NULL,
-					'lightbox'  => true,
-					'title'     => NULL,
-					'mode'      => NULL,
-					'page'      => NULL,
-					'wheel'     => NULL,
-					'analytics' => NULL,
-					'ratio'     => NULL,
-					'thumbnail' => NULL,
-					'legacy'    => NULL
-				), $attrs, $tag );
-
-			$orig_a = $a;
-			$a = $this->fix_size_for_oembed($a);
+			$sanitized_a = shortcode_atts( $sanitized_attrs, $sanitized_attrs, $tag );
+			$orig_a = $sanitized_a;
+			$a = $this->fix_size_for_oembed($sanitized_a);
+			$a = array_filter( $a, function( $value ) {
+				return $value !== null && $value !== '';
+			});
 //			add_filter('https_ssl_verify', '__return_false');
-			$content = trim($content);
-			$oembed_url = $wp_oembed->discover( $content );
+			$oembed_url = $wp_oembed->discover( $publication_url );
 			if (! $oembed_url ) {
-				return __('Error embedding FlippingBook shortcode, please check the flipbook url. ('.$content.')', 'flippingbook');
+				return sprintf(__('Error embedding FlippingBook shortcode, please check the flipbook url. (%s)', 'flippingbook'), esc_html($publication_url));
 			}
 			$oembed_url_parts = explode("?", $oembed_url);
 			$provider_url = $oembed_url_parts[0];
-			$fetch_url = $provider_url . '?url='. $content . '&' . http_build_query($a);
+			$fetch_url = $provider_url . '?url='. rawurlencode( $publication_url ) . '&' . http_build_query($a);
 			$embed_data = $wp_oembed->__call('_fetch_with_format', array( $fetch_url, 'json' ));
 
 			if (!is_wp_error($embed_data)) {
@@ -188,8 +348,8 @@ class Flippingbook {
 					$embed_html = $this->add_embed_method($embed_html, 'wp');
 
 					$embed_transient = array(
-						'publication_url' => $content,
-						'attrs' => $a,
+						'publication_url' => $publication_url,
+						'attrs' => $sanitized_a,
 						'embed_html' => $embed_html
 					);
 					set_transient('flippingbook_'.$shortcode_hash, $embed_transient, DAY_IN_SECONDS );
@@ -200,7 +360,7 @@ class Flippingbook {
 			} else {
 				if ( WP_DEBUG ) {
 					$error_string = $embed_data->get_error_message();
-					echo '<div id="message" class="error"><p>' . $error_string . '</p></div>';
+					echo '<div id="message" class="error"><p>' . esc_html( $error_string ) . '</p></div>';
 				}
 				return  __('Error embedding FlippingBook shortcode', 'flippingbook');
 			}
