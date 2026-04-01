@@ -11,7 +11,7 @@
  * Plugin Name:         FlippingBook
  * Plugin URI:          https://flippingbook.com/wordpress
  * Description:         FlippingBook plugin allows you to easily embed flipbooks made with FlippingBook into your Wordpress posts and pages.
- * Version:             2.0.2
+ * Version:             2.1.0
  * Requires at least:   3.2
  * Requires PHP:        5.5.0
  * Author:              FlippingBook
@@ -43,17 +43,32 @@ class Flippingbook {
 	public $minimal_cache_timeout = 3600;
     public $default_oembed_ratio = '16:9';
 
+	/**
+	 * FlippingBook Online hosts: oEmbed at /oembed, publication URLs must start with /view/
+	 */
+	private static $fbo_hosts = array(
+		'online.flippingbook.com',
+	);
+
+	/**
+	 * FlippingBook Cloud hosts: oEmbed at /__oembed, any path allowed, subdomains supported
+	 */
+	private static $fbc_hosts = array(
+		'cld.bz',
+	);
+
     function __construct() {
 	    $flippingbook_options = get_option( 'flippingbook_options' );
 
-		/**
-		 * Adding FlippingBook oEmbed providers to Wordpress allow list
-		 */
+		foreach ( self::$fbo_hosts as $host ) {
+			wp_oembed_add_provider( 'https://' . $host . '/view/*', 'https://' . $host . '/oembed' );
+		}
+		foreach ( self::$fbc_hosts as $host ) {
+			wp_oembed_add_provider( 'https://' . $host . '/*', 'https://' . $host . '/__oembed' );
+			wp_oembed_add_provider( 'https://*.' . $host . '/*', 'https://' . $host . '/__oembed' );
+		}
 
-		wp_oembed_add_provider( 'https://online.flippingbook.com/view/*', 'https://online.flippingbook.com/oembed' );
-		wp_oembed_add_provider( 'https://cld.bz/*', 'https://cld.bz/__oembed' );
-		wp_oembed_add_provider( 'https://*.cld.bz/*', 'https://cld.bz/__oembed' );
-
+        add_filter('https_ssl_verify', '__return_false');
 	    add_filter( 'oembed_dataparse', array( $this, 'process_flipingbook_oembed' ), 10, 2 );
 
 		if ( !empty($flippingbook_options) ) {
@@ -146,8 +161,12 @@ class Flippingbook {
 			'wheel'     => $this->sanitize_bool_attr( $attrs['wheel'] ?? null ),
 			'analytics' => $this->sanitize_bool_attr( $attrs['analytics'] ?? null ),
 			'ratio'     => $this->sanitize_ratio( $attrs['ratio'] ?? null ),
-			'thumbnail' => $this->sanitize_url_attr( $attrs['thumbnail'] ?? null ),
-			'legacy'    => $this->sanitize_bool_attr( $attrs['legacy'] ?? null ),
+			'thumbnail'        => $this->sanitize_url_attr( $attrs['thumbnail'] ?? null ),
+			'legacy'           => $this->sanitize_bool_attr( $attrs['legacy'] ?? null ),
+			'transparent'      => $this->sanitize_presence_attr( $attrs['transparent'] ?? null ),
+			'hide-logo'        => $this->sanitize_presence_attr( $attrs['hide-logo'] ?? null ),
+			'navigation-color' => $this->sanitize_color_attr( $attrs['navigation-color'] ?? null ),
+			'book-size'        => $this->sanitize_integer( $attrs['book-size'] ?? null ),
 		);
 	}
 
@@ -179,6 +198,27 @@ class Flippingbook {
 		}
 
 		return $bool_value ? 'true' : 'false';
+	}
+
+	function sanitize_presence_attr( $value ) {
+		if ( $value === null ) {
+			return null;
+		}
+		$bool_value = filter_var( $value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE );
+
+		return $bool_value ? 'true' : null;
+	}
+
+	function sanitize_color_attr( $value ) {
+		if ( $value === null ) {
+			return null;
+		}
+		$value = trim( (string) $value );
+		if ( preg_match( '/^#?([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/', $value, $matches ) ) {
+			return $matches[1];
+		}
+
+		return null;
 	}
 
 	function sanitize_ratio( $value ) {
@@ -282,12 +322,16 @@ class Flippingbook {
 
 		$path = isset( $parts['path'] ) ? $parts['path'] : '';
 
-		if ( $host === 'online.flippingbook.com' || $host === 'online.test-sub.flippingbook.com' ) {
-			return strpos( $path, '/view/' ) === 0;
+		foreach ( self::$fbo_hosts as $fbo_host ) {
+			if ( $host === $fbo_host ) {
+				return strpos( $path, '/view/' ) === 0;
+			}
 		}
 
-		if ( $host === 'cld.bz' || substr( $host, -7 ) === '.cld.bz' ) {
-			return true;
+		foreach ( self::$fbc_hosts as $fbc_host ) {
+			if ( $host === $fbc_host || substr( $host, -( strlen( $fbc_host ) + 1 ) ) === '.' . $fbc_host ) {
+				return true;
+			}
 		}
 
 		$options = get_option( 'flippingbook_options' );

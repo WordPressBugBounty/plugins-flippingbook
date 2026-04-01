@@ -4,7 +4,7 @@ Tags: flipbook, pdf viewer, embed pdf, catalog, page flip
 Requires at least: 3.2
 Requires PHP: 5.5.0
 Tested up to: 6.9
-Stable tag: 2.0.2
+Stable tag: 2.1.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -74,8 +74,12 @@ Note: If you set a specified ratio, you need to set the height to `auto` so that
 * `mode`—you can set your PDF flipbook to be viewed as a `link` if you don’t want to have a full embed on your page 
 Note: Best used together with the lightbox attribute (see below).
 * `lightbox`—by default, we open embedded links or clickable covers in a lightbox, but if you set this parameter to `false`, the flipbook will be opened in a new tab instead
-* `wheel`—set to `true`, if you want people to be able to flip through your embedded flipbook using the mouse wheel 
+* `wheel`—set to `true`, if you want people to be able to flip through your embedded flipbook using the mouse wheel
 Note: This attribute may disrupt page scrolling when the cursor is over the embed.
+* `transparent`—set to `true` to make the embed background transparent
+* `hide-logo`—set to `true` to hide the FlippingBook logo (only applies when `transparent="true"`)
+* `navigation-color`—set the navigation color as a hex value, e.g. `#FF0000` or `F00` (only applies when `transparent="true"`)
+* `book-size`—set the book size as a percent number, e.g. `80` (only applies when `transparent="true"`)
 
 = Shortcode examples =
 This shortcode will display your PDF flip book in a 800x550px window:
@@ -114,6 +118,8 @@ Like with all plugins, our plugin is available starting from the Business plan.
 We don’t have a free plan but you can try FlippingBook for free, no credit card required. All features and templates are available to you during the trial, bar Custom Domain. You can check out all our plans and prices [here](https://flippingbook.com/order-online).
 
 == Changelog ==
+= 2.1.0 =
+* Added support for new shortcode parameters: `transparent`, `hide-logo`, `navigation-color`, and `book-size`.
 = 2.0.2 =
 * Security updates.
 = 2.0.1 =
